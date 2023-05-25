@@ -3,21 +3,24 @@ import secrets
 
 class DeckManager:
     RANK_STRINGS = ['2', '3', '4', '5', '6', '7', '8', '9', '10', 'J', 'Q', 'K', 'A']
-    SUIT_STRINGS = ['Spades', 'Hearts', 'Diamonds', 'Clubs']
-
-    deck = None
+    SUIT_STRINGS = ['Spades', 'Clubs', 'Hearts', 'Diamonds']
+    
+    @staticmethod
+    def get_rank_index(rank_string):
+        return DeckManager.RANK_STRINGS.index(rank_string)
 
     @staticmethod
-    def create_deck(deck):
+    def create_deck():
         deck = [(rank, suit) for rank, suit in itertools.product(range(13), range(4))]
         return deck
 
     @staticmethod
     def shuffle_deck(deck):
-        for i in range(len(deck)-1, 0, -1):  # Start from the last card
+        for i in range(len(deck) - 1, -1, -1):  # Start from the last card
             j = secrets.randbelow(i + 1)  # Generate a secure random index
             deck[i], deck[j] = deck[j], deck[i]  # Swap the current card with the card at the random index
         return deck
+
 
     @staticmethod
     def draw_card(deck):

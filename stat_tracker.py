@@ -1,5 +1,73 @@
 import copy
 
+
+        self.preflop_stats = PreflopStats()
+        self.flop_stats = FlopStats()
+        self.turn_stats = TurnStats()
+        self.river_stats = RiverStats()
+        self.showdown_stats = ShowdownStats()
+        self.hand_rank = PokerHand()
+
+
+        self.vpip = 0.0
+        self.pfr = 0.0
+        self.three_bet = 0.0
+        self.fold_to_three_bet = 0.0
+        self.fold_to_c_bet = 0.0
+        self.fold_to_steal = 0.0
+        self.steal_attempt = 0.0
+        self.call_open = 0.0
+        self.wtsd = 0.0
+        self.wsd = 0.0
+        self.afq = 0.0
+        self.afq_flop = 0.0
+        self.afq_turn = 0.0
+        self.afq_river = 0.0
+        self.check_raise = 0.0
+        self.donk_bet = 0.0
+        self.squeeze = 0.0
+        self.cbet = 0.0
+        self.fold_to_cbet = 0.0
+        self.check_raise_flop = 0.0
+        self.check_raise_turn = 0.0
+        self.check_raise_river = 0.0
+        self.wtsd_call_pf_raise = 0.0
+        self.double_barrel = 0.0
+        self.triple_barrel = 0.0
+        self.fold_flop_bet = 0.0
+        self.fold_turn_bet = 0.0
+        self.fold_river_bet = 0.0
+        self.four_bet = 0.0
+        self.call_three_bet = 0.0
+        self.cold_call = 0.0
+        self.check_fold_flop = 0.0
+        self.check_fold_turn = 0.0
+        self.check_fold_river = 0.0
+        self.fold_big_blind_to_steal = 0.0
+        self.fold_small_blind_to_steal = 0.0
+        self.fold_probe_bet = 0.0
+        self.fold_turn_river_probe_bet = 0.0
+        self.donk_bet_flop = 0.0
+        self.donk_bet_turn = 0.0
+        self.donk_bet_river = 0.0
+        self.call_two_bet = 0.0
+        self.fold_to_four_bet = 0.0
+        self.five_bet = 0.0
+        self.check_raise_flop_c_bet = 0.0
+        self.check_raise_turn_c_bet = 0.0
+        self.fold_to_flop_c_bet_in_3bet_pot = 0.0
+        self.fold_to_turn_c_bet_in_3bet_pot = 0.0
+        self.fold_to_river_c_bet_in_3bet_pot = 0.0
+        self.fold_to_4bet_in_3bet_pot = 0.0
+        self.fold_to_flop_donk_bet = 0.0
+        self.fold_to_turn_donk_bet = 0.0
+        self.fold_to_river_donk_bet = 0.0
+        self.fold_to_probe_bet_flop_turn_river_in_3bet_pot = 0.0
+        self.fold_to_flop_probe_bet_in_4bet_pot = 0.0
+
+
+
+
 class StatTracker:
     def __init__(self):
         self.players_stats = {}  # Overall statistics
@@ -25,15 +93,15 @@ class StatTracker:
         player_name = action.player
         player_stats = self.current_hand_stats[player_name]
 
-        if action.street == 'PREFLOP':
+        if action.street == 'preflop':
             player_stats.preflop.update(action, self.previous_action)
-        elif action.street == 'FLOP':
+        elif action.street == 'flop':
             player_stats.flop.update(action, self.previous_action)
-        elif action.street == 'TURN':
+        elif action.street == 'turn':
             player_stats.turn.update(action, self.previous_action)
-        elif action.street == 'RIVER':
+        elif action.street == 'river':
             player_stats.river.update(action, self.previous_action)
-        elif action.street == 'SHOWDOWN':
+        elif action.street == 'showdown':
             player_stats.showdown.update(action, self.previous_action)
 
         self.previous_action = action
@@ -63,8 +131,13 @@ class StatTracker:
     def get_session_stats(self, player_name):
         return self.session_stats[player_name] if player_name in self.session_stats else None
 
+    def save_player_stats(self):
+        pass
+
     def start_new_session(self):
         self.session_stats = {}
+
+
 
 
 

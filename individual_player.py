@@ -1,115 +1,149 @@
+from poker_hand import PokerHand
+
 class Player:
     def __init__(self, name, stack_size, model):
         self.name = name
         self.stack_size = stack_size
         self.model = model
+
         self.hole_cards = []
+        self.current_hand_rank = None
+        
+        self.is_waiting = False
+        self.is_sitting_out = False
+        self.is_eligible_for_pot = True
         
         self.is_folded = False
         self.is_all_in = False
-        self.current_bet = 0
+        self.has_acted = False
+        
+        self.is_dealer = False
+        self.is_small_blind = False
+        self.is_big_blind = False
+
+        self.last_bet = 0
+        self.round_bet = 0
+        self.total_bet = 0
      
-         # PT4 Stats
-        self.vpip = 0.0
-        self.pfr = 0.0
-        self.three_bet = 0.0
-        self.fold_to_three_bet = 0.0
-        self.fold_to_c_bet = 0.0
-        self.fold_to_steal = 0.0
-        self.steal_attempt = 0.0
-        self.call_open = 0.0
-        self.wtsd = 0.0
-        self.wsd = 0.0
-        self.afq = 0.0
-        self.afq_flop = 0.0
-        self.afq_turn = 0.0
-        self.afq_river = 0.0
-        self.check_raise = 0.0
-        self.donk_bet = 0.0
-        self.squeeze = 0.0
-        self.cbet = 0.0
-        self.fold_to_cbet = 0.0
-        self.check_raise_flop = 0.0
-        self.check_raise_turn = 0.0
-        self.check_raise_river = 0.0
-        self.wtsd_call_pf_raise = 0.0
-        self.double_barrel = 0.0
-        self.triple_barrel = 0.0
-        self.fold_flop_bet = 0.0
-        self.fold_turn_bet = 0.0
-        self.fold_river_bet = 0.0
-        self.four_bet = 0.0
-        self.call_three_bet = 0.0
-        self.cold_call = 0.0
-        self.check_fold_flop = 0.0
-        self.check_fold_turn = 0.0
-        self.check_fold_river = 0.0
-        self.fold_big_blind_to_steal = 0.0
-        self.fold_small_blind_to_steal = 0.0
-        self.fold_probe_bet = 0.0
-        self.fold_turn_river_probe_bet = 0.0
-        self.donk_bet_flop = 0.0
-        self.donk_bet_turn = 0.0
-        self.donk_bet_river = 0.0
-        self.call_two_bet = 0.0
-        self.fold_to_four_bet = 0.0
-        self.five_bet = 0.0
-        self.check_raise_flop_c_bet = 0.0
-        self.check_raise_turn_c_bet = 0.0
-        self.fold_to_flop_c_bet_in_3bet_pot = 0.0
-        self.fold_to_turn_c_bet_in_3bet_pot = 0.0
-        self.fold_to_river_c_bet_in_3bet_pot = 0.0
-        self.fold_to_4bet_in_3bet_pot = 0.0
-        self.fold_to_flop_donk_bet = 0.0
-        self.fold_to_turn_donk_bet = 0.0
-        self.fold_to_river_donk_bet = 0.0
-        self.fold_to_probe_bet_flop_turn_river_in_3bet_pot = 0.0
-        self.fold_to_flop_probe_bet_in_4bet_pot = 0.0
+    def pay_ante(self, ante_amount):
+        if ante_amount > self.stack_size:
+            print(f"{self.name} does not have enough chips to pay the ante. Going all-in.")
+            return self.all_in()  # All_in will return the amount to be added to the pot
+        else:
+            self.stack_size -= ante_amount
+            self.total_bet += ante_amount
+            return ante_amount
 
 
-    def fold(self):
+    def fold(self, eligible_players):
         self.hole_cards = []  # discard hand
         self.is_folded = True
+        self.is_eligible_for_pot = False
+        
+        # if player's name is in the community pot eligible players list
+        if self in eligible_players:
+            eligible_players.remove(self)
 
-    def check(self):
-        if self.current_bet != 0:
-            raise ValueError(f"{self.name} cannot check because the current bet is {self.current_bet}")
-        # else: do nothing
 
-    def call(self, bet):
-        if bet > self.stack_size:
-            print(f"{self.name} does not have enough chips to call. Going all-in.")
-            return self.all_in()
+    def check(self, bet_to_match):
+        if self.total_bet != bet_to_match:
+            raise ValueError(f"{self.name} cannot check because the current bet is {bet_to_match}")
         else:
-            self.stack_size -= bet
-            self.current_bet = bet
+            self.last_bet = bet_to_match
+            self.round_bet += self.last_bet
+            self.total_bet += self.last_bet
+            return self.last_bet
+
 
     def bet(self, amount):
         if amount > self.stack_size:
             raise ValueError(f"{self.name} does not have enough chips to bet. Available chips: {self.stack_size}")
         else:
             self.stack_size -= amount
-            self.current_bet = amount
+            self.last_bet = amount
+            self.round_bet += self.last_bet
+            self.total_bet += self.last_bet
+            return amount  # Return amount to be added to the pot
 
-    def raise_bet(self, current_bet, raise_amount):
-        total_bet = current_bet + raise_amount
-        if total_bet > self.stack_size:
+
+    def raise_bet(self, raise_amount):
+        if raise_amount >= self.stack_size + self.total_bet:
             print(f"{self.name} does not have enough chips to raise. Going all-in.")
+            return self.all_in()  # All_in will return the amount to be added to the pot
+        else:
+            self.stack_size -= raise_amount
+            self.last_bet = raise_amount - self.total_bet
+            self.round_bet += self.last_bet
+            self.total_bet += self.last_bet
+            return raise_amount
+
+
+    def call(self, bet_to_match):
+        if bet_to_match > self.stack_size + self.last_bet:
+            print(f"{self.name} does not have enough chips to call. Going all-in.")
+            return self.all_in()  # All_in will return the amount to be added to the pot
+        elif self.stack_size + self.total_bet == bet_to_match:
             return self.all_in()
         else:
-            self.stack_size -= total_bet
-            self.current_bet = total_bet
+            call_amount = bet_to_match - self.round_bet
+            self.stack_size -= call_amount
+            self.last_bet = call_amount
+            self.round_bet = self.last_bet
+            self.total_bet += self.last_bet
+            return call_amount  # Return bet to be added to the pot
+
 
     def all_in(self):
+        self.is_all_in = True
         all_in_value = self.stack_size
         self.stack_size = 0
-        self.current_bet = all_in_value
-        self.is_all_in = True
-        return all_in_value
+        
+        self.last_bet = all_in_value
+        self.round_bet += self.last_bet
+        self.total_bet += self.last_bet
+        return all_in_value  # Return all_in_value to be added to the pot
+
 
     def reset_for_new_hand(self):
         self.hole_cards = []
+        self.current_hand_rank = None
+        self.is_eligible_for_pot = True
+        self.has_acted = False
         self.is_folded = False
         self.is_all_in = False
-        self.current_bet = 0
+        self.last_bet = 0
+        self.round_bet = 0
+        self.total_bet = 0
+
+
+    def make_decision(self, bet_to_match, street, community_cards, community_pot, side_pots, active_players, eligibile_players):
+        self.current_hand_rank = PokerHand.evaluate_hand(self.hole_cards, community_cards)
+        
+        print(active_players)
+        print(eligibile_players)
+
+        print("\nIt's your turn, {}.".format(self.name))
+        print("Your hole cards are: ", [str(card) for card in self.hole_cards])
+        print("Your current Hand Rank is: ", self.current_hand_rank )
+        print("Your current stack is: ", self.stack_size)
+        print("Current bet to match is: ", bet_to_match)
+        print("Your current bet is: ", self.round_bet)
+        print("Current street is: ", street)
+        print("Community cards are: ", [str(card) for card in community_cards])
+        print("Community pot size is: ", community_pot['pot_value'])
+        print("Side pots are: ", side_pots)
+
+        
        
+        action = input("Please enter an action (FOLD/CHECK/CALL/BET/RAISE/ALL_IN): ").upper()
+
+        #action = "CALL"
+
+        return Action(action, self.last_bet)
+    
+    
+
+class Action:
+    def __init__(self, type, amount=0):
+        self.type = type.upper()
+        self.amount = amount
