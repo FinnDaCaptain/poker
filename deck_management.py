@@ -2,6 +2,11 @@ import itertools
 import secrets
 
 class DeckManager:
+    def __init__(self, active_players, shuffled_deck):
+        self.active_players = active_players
+        self.shuffled_deck = shuffled_deck
+
+    
     RANK_STRINGS = ['2', '3', '4', '5', '6', '7', '8', '9', '10', 'J', 'Q', 'K', 'A']
     SUIT_STRINGS = ['Spades', 'Clubs', 'Hearts', 'Diamonds']
     
@@ -36,3 +41,16 @@ class DeckManager:
     def get_card_string(self, card):
         rank, suit = card
         return self.RANK_STRINGS[rank], self.SUIT_STRINGS[suit]
+
+
+    def deal_hole_cards(self):
+        # Use the DeckManager to draw cards and convert them to strings
+        cards, self.shuffled_deck = self.deal_cards(self.shuffled_deck, 1)
+        hole_cards = [self.get_card_string(card) for card in cards]
+
+        return hole_cards
+    
+
+    def deal_community_cards(self, num_cards):
+        cards, self.shuffled_deck = self.deal_cards(self.shuffled_deck, num_cards)
+        self.community_cards.extend([self.deck_manager.get_card_string(card) for card in cards])

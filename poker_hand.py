@@ -102,3 +102,40 @@ class PokerHand:
                 return sorted_cards
         return False
 
+
+
+    @staticmethod
+    def sort_players_by_hand_rank(players):
+        # Sort the list in descending order by hand rank and all five cards considering the kicker
+        players.sort(key=lambda player: (
+            player.current_hand_rank[0],  # hand rank
+            [DeckManager.get_rank_index(card[0]) for card in sorted(player.current_hand_rank[1], reverse=True)]  # all five cards
+        ), reverse=True)
+
+        # Initialize the list that will store the sorted players
+        sorted_players = []
+
+        # Loop over the sorted list of players
+        for player in players:
+            hand_rank, hand_cards = player.current_hand_rank
+            hand_card_ranks = [DeckManager.get_rank_index(card[0]) for card in sorted(hand_cards, reverse=True)]
+
+            # If the sorted_players list is empty, or the last group has a different hand rank or all five cards,
+            # add a new group
+            if not sorted_players or \
+                sorted_players[-1][0].current_hand_rank[0] != hand_rank or \
+                [DeckManager.get_rank_index(card[0]) for card in sorted(sorted_players[-1][0].current_hand_rank[1], reverse=True)] != hand_card_ranks:
+                sorted_players.append([player])  # Only append the player object
+            else:
+                # Otherwise, add the player to the last group
+                sorted_players[-1].append(player)  # Only append the player object
+
+        return sorted_players
+
+
+
+
+
+
+
+

@@ -1,7 +1,6 @@
-import copy
 
 class PotManagement:
-    def __init__(self, table_manager, community_pot, side_pots, ranked_players, eligible_players, active_players):
+    def __init__(self, table_manager, community_pot, side_pots, ranked_players, eligible_players, active_players, ante, small_blind, big_blind):
         self.table_manager = table_manager
         self.community_pot = community_pot
         self.side_pots = side_pots
@@ -10,18 +9,23 @@ class PotManagement:
         self.eligible_players =  eligible_players
         self.active_players = active_players
 
-    def collect_blinds(self, small_blind, big_blind):
+        self.ante = ante
+        self.small_blind = small_blind
+        self.big_blind = big_blind
+
+
+    def collect_blinds(self):
         
         for player in self.active_players:
-            if player is None:  # Skip the empty seats
+            if player is None or player.is_sitting_out:  # Skip the empty seats
                 continue
 
             if player.is_small_blind:
                 # Collect small blind
-                small_blind_amount = min(player.stack_size, small_blind)
+                small_blind_amount = min(player.stack_size, self.small_blind)
 
                 # Check if a player has gone all-in for less
-                if small_blind_amount < small_blind:
+                if small_blind_amount < self.small_blind:
                     player.all_in()
                 else:
                     player.bet(small_blind_amount)
@@ -31,9 +35,9 @@ class PotManagement:
 
             if player.is_big_blind:
                 # Collect big blind
-                big_blind_amount = min(player.stack_size, big_blind)
+                big_blind_amount = min(player.stack_size, self.big_blind)
 
-                if big_blind_amount < big_blind:
+                if big_blind_amount < self.big_blind:
                     player.all_in()
                 else:
                     player.bet(big_blind_amount)
@@ -45,79 +49,86 @@ class PotManagement:
 
 
 
-    def collect_antes(self, ante):
+    def collect_antes(self):
         for player in self.active_players:
             if player.stack_size == 0:
                 continue  # Skip players with no chips
-            ante_amount = min(player.stack_size, ante)
+            ante_amount = min(player.stack_size, self.ante)
             player.pay_ante(ante_amount)
             self.community_pot['pot_value'] += ante_amount
         return self.community_pot['pot_value']
 
 
-
-    def handle_bets(self):
-        all_in_players = sorted([player for player in self.active_players if player.is_all_in], key=lambda player: player.all_in_amount)
-        covered_all_in_amount = 0  # All-in amount that was already covered by the previous side pots
+    def create_side_pot(self):
+        all_in_players = sorted([player for player in self.active_players if player.is_all_in and player.is_eligible_for_pot], key=lambda player: player.total_bet)
 
         while len(all_in_players) > 0:
-            player = all_in_players.pop(0)  # Remove and get the first player who went all-in
+            side_pot_players = []  # List to store players with the same all-in amount
+            player = all_in_players.pop(0)  # Get the first player who went all-in
+            side_pot_players.append(player)  # Add the player to the list
 
-            # Create a side pot if there are at least 2 players who can contribute to it
-            if len(self.eligible_players) >= 3:
-                side_pot_multiplier = len(self.eligible_players)
-                player_pot_value = player.total_bet - covered_all_in_amount  # Excess of the player's total bet over the covered all_in amount
-                side_pot_value = player_pot_value * side_pot_multiplier
-                
-                # Check that the side pot value doesn't exceed the community pot value
-                side_pot_value = min(side_pot_value, self.community_pot['pot_value'])
-                
-                self.community_pot['pot_value'] -= side_pot_value
+            # Find other players with the same all-in amount
+            while len(all_in_players) > 0 and all_in_players[0].total_bet == player.total_bet:
+                side_pot_players.append(all_in_players.pop(0))
 
-                # Add a copy of each eligible player to the new side pot
-                self.side_pots.append({'pot_value': side_pot_value, 'eligible_players': [copy.copy(player) for player in self.eligible_players]})
+            player_pot_value = player.total_bet  
 
-                covered_all_in_amount = player.total_bet  # Update the covered all-in amount
+            # Calculate the side pot value and subtract it from each eligible player's total bet
+            side_pot_value = 0
+            for pot_player in self.community_pot['eligible_players']:
+                pot_player.total_bet -= player_pot_value
+                side_pot_value += player_pot_value
 
-            # The all-in player is no longer eligible for further pots
-            self.community_pot['eligible_players'].remove(player)
+            self.community_pot['pot_value'] -= side_pot_value
 
-        # This might not be necessary anymore, but keeping it in case there are other reasons to update eligible players
-        self.community_pot['eligible_players'] = [player for player in self.community_pot['eligible_players'] if player.is_eligible_for_pot]
+            side_pot_eligible_players = self.community_pot['eligible_players']
+
+            self.side_pots.append({'pot_value': side_pot_value, 'eligible_players': side_pot_eligible_players})
+
+        # The all-in players are no longer eligible for further pots
+        for player in side_pot_players:
+            player.is_eligible_for_pot = False
+
+        self.eligible_players = self.table_manager.update_player_eligibility()
+
+        return self.side_pots
 
 
+    def distribute_pots(self, ranked_player_groups):
+        # ranked_player_groups is a list of lists, process each group in the list
+        for group in ranked_player_groups:
+            if not isinstance(group, list):
+                group = [group]
+            # Check if any player in the group is eligible for a side pot
+            for index in reversed(range(len(self.side_pots))):
+                pot = self.side_pots[index]
+                if all(player.name in [player.name for player in pot['eligible_players']] for player in group):
+                    print(f"{', '.join(player.name for player in group)} distributed side pot of {pot['pot_value']}.")
+                    self.distribute_pot(pot, group)  # Distribute the pot amongst the group
+                    self.side_pots.pop(index)
 
-    def distribute_pots(self, ranked_players):
-        for player in ranked_players:
+            # Check if any player in the group is eligible for the community pot
+            if self.community_pot['pot_value'] > 0 and all(player.name in [p.name for p in self.community_pot['eligible_players']] for player in group):
+                print(f"{', '.join(player.name for player in group)} distributed community pot of {self.community_pot['pot_value']}.")
+                self.distribute_pot(self.community_pot, group)  # Distribute the pot amongst the group
+                self.community_pot['pot_value'] = 0
+                self.community_pot['eligible_players'] = []
 
-            # Distribute all pots this player is eligible for
-            for pot in self.side_pots + [self.community_pot]:
-                if player.name in [p.name for p in pot['eligible_players']]:
-                    self.distribute_pot(pot, player)
-
-            # Stop distribution if all pots have been distributed
-            if all(pot['pot_value'] == 0 for pot in self.side_pots) and self.community_pot['pot_value'] == 0:
+            # If all pots are distributed, break the loop
+            if self.side_pots == [] and self.community_pot['pot_value'] == 0:
                 break
 
-        # Clear the list of eligible players for the next hand
-        self.eligible_players = []
-        self.side_pots = []
 
-
-    def distribute_pot(self, pot, player):
+    def distribute_pot(self, pot, player_group):
         pot_size = pot['pot_value']
 
-        # Check if player is eligible for this pot
-        if player.name not in [p.name for p in pot['eligible_players']]:
-            return
-
         # Find the eligible winners from the ranked players
-        winners = [p for p in pot['eligible_players'] if p.name == player.name]
+        winners = [player for player in player_group if player.name in [p.name for p in pot['eligible_players']]]
 
         if len(winners) == 1:
             winner = winners[0]
             winner.stack_size += pot_size
-            print(f"Player {winner.name} wins the pot of {pot_size}.")
+
         else:
             # Split the pot among the winners
             winnings_per_player = pot_size // len(winners)
@@ -130,12 +141,7 @@ class PotManagement:
             for i in range(remainder):
                 winners[i].stack_size += 1
 
-            print("The pot was split among multiple winners.")
 
-        # Update pot values
-        pot['pot_value'] = 0
-        # Remove this player from the eligible players for this pot
-        pot['eligible_players'].remove(player)
 
 
 

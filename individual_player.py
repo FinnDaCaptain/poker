@@ -1,5 +1,3 @@
-from poker_hand import PokerHand
-
 class Player:
     def __init__(self, name, stack_size, model):
         self.name = name
@@ -16,6 +14,7 @@ class Player:
         self.is_folded = False
         self.is_all_in = False
         self.has_acted = False
+        self.is_tied = False
         
         self.is_dealer = False
         self.is_small_blind = False
@@ -26,71 +25,64 @@ class Player:
         self.total_bet = 0
      
     def pay_ante(self, ante_amount):
-        if ante_amount > self.stack_size:
-            print(f"{self.name} does not have enough chips to pay the ante. Going all-in.")
-            return self.all_in()  # All_in will return the amount to be added to the pot
+        if ante_amount >= self.stack_size:
+            print(f"{self.name} does not have enough chips. Going all-in.")
+            self.is_all_in = True
+            all_in_value = self.stack_size
+            self.stack_size = 0
+            self.total_bet += all_in_value
+            return all_in_value # All_in will return the amount to be added to the pot
         else:
             self.stack_size -= ante_amount
             self.total_bet += ante_amount
             return ante_amount
 
-
     def fold(self, eligible_players):
         self.hole_cards = []  # discard hand
         self.is_folded = True
         self.is_eligible_for_pot = False
+        self.last_bet = 0
         
         # if player's name is in the community pot eligible players list
         if self in eligible_players:
             eligible_players.remove(self)
 
-
     def check(self, bet_to_match):
-        if self.total_bet != bet_to_match:
-            raise ValueError(f"{self.name} cannot check because the current bet is {bet_to_match}")
+        self.last_bet = bet_to_match - self.round_bet
+        self.round_bet += self.last_bet
+        self.total_bet += self.last_bet
+        return self.last_bet
+
+    def bet(self, bet_amount):
+        if bet_amount >= self.stack_size:
+            print(f"{self.name} does not have enough chips. Going all-in.")
+            return self.all_in()  # All_in will return the amount to be added to the pot
         else:
-            self.last_bet = bet_to_match
+            self.stack_size -= bet_amount
+            self.last_bet = bet_amount
             self.round_bet += self.last_bet
             self.total_bet += self.last_bet
-            return self.last_bet
-
-
-    def bet(self, amount):
-        if amount > self.stack_size:
-            raise ValueError(f"{self.name} does not have enough chips to bet. Available chips: {self.stack_size}")
-        else:
-            self.stack_size -= amount
-            self.last_bet = amount
-            self.round_bet += self.last_bet
-            self.total_bet += self.last_bet
-            return amount  # Return amount to be added to the pot
+            return self.last_bet  # Return amount to be added to the pot
 
 
     def raise_bet(self, raise_amount):
-        if raise_amount >= self.stack_size + self.total_bet:
-            print(f"{self.name} does not have enough chips to raise. Going all-in.")
-            return self.all_in()  # All_in will return the amount to be added to the pot
-        else:
-            self.stack_size -= raise_amount
-            self.last_bet = raise_amount - self.total_bet
-            self.round_bet += self.last_bet
-            self.total_bet += self.last_bet
-            return raise_amount
+        self.last_bet = raise_amount
+        self.stack_size -= self.last_bet
+        self.round_bet += self.last_bet
+        self.total_bet += self.last_bet
+        return raise_amount
 
 
     def call(self, bet_to_match):
-        if bet_to_match > self.stack_size + self.last_bet:
-            print(f"{self.name} does not have enough chips to call. Going all-in.")
-            return self.all_in()  # All_in will return the amount to be added to the pot
-        elif self.stack_size + self.total_bet == bet_to_match:
+        if bet_to_match >= self.stack_size:
+            print(f"Call put {self.name} all in")
             return self.all_in()
-        else:
-            call_amount = bet_to_match - self.round_bet
-            self.stack_size -= call_amount
-            self.last_bet = call_amount
-            self.round_bet = self.last_bet
-            self.total_bet += self.last_bet
-            return call_amount  # Return bet to be added to the pot
+        call_amount = bet_to_match - self.round_bet
+        self.stack_size -= call_amount
+        self.last_bet = call_amount
+        self.round_bet += self.last_bet
+        self.total_bet += self.last_bet
+        return call_amount  # Return bet to be added to the pot
 
 
     def all_in(self):
@@ -104,6 +96,11 @@ class Player:
         return all_in_value  # Return all_in_value to be added to the pot
 
 
+    def reset_for_betting_round(self):
+        self.last_bet = 0
+        self.round_bet = 0
+        self.has_acted = False
+
     def reset_for_new_hand(self):
         self.hole_cards = []
         self.current_hand_rank = None
@@ -116,30 +113,68 @@ class Player:
         self.total_bet = 0
 
 
-    def make_decision(self, bet_to_match, street, community_cards, community_pot, side_pots, active_players, eligibile_players):
-        self.current_hand_rank = PokerHand.evaluate_hand(self.hole_cards, community_cards)
+    def make_decision_test(self, big_blind, bet_to_match, last_raise):
         
-        print(active_players)
-        print(eligibile_players)
+        bet_amount = bet_to_match
+        action = "CALL"
+        return Action(action, bet_amount)
 
-        print("\nIt's your turn, {}.".format(self.name))
-        print("Your hole cards are: ", [str(card) for card in self.hole_cards])
-        print("Your current Hand Rank is: ", self.current_hand_rank )
-        print("Your current stack is: ", self.stack_size)
-        print("Current bet to match is: ", bet_to_match)
-        print("Your current bet is: ", self.round_bet)
-        print("Current street is: ", street)
-        print("Community cards are: ", [str(card) for card in community_cards])
-        print("Community pot size is: ", community_pot['pot_value'])
-        print("Side pots are: ", side_pots)
 
+    def make_decision(self, big_blind, bet_to_match, last_raise):
         
-       
-        action = input("Please enter an action (FOLD/CHECK/CALL/BET/RAISE/ALL_IN): ").upper()
-
-        #action = "CALL"
-
-        return Action(action, self.last_bet)
+        while True:
+            bet_amount = 0
+            try:
+                if self.round_bet == bet_to_match:
+                    action = input("Please enter an action (CHECK/BET/ALL_IN): ").upper()
+                    if action == 'CHECK':
+                        bet_amount = bet_to_match
+                        break
+                    elif action == 'BET':
+                        bet_amount = int(input("Enter your bet amount: "))
+                        if bet_amount >= big_blind:
+                            if bet_amount <= self.stack_size:
+                                break
+                            else:
+                                print("You don't have enough chips to bet this amount.")
+                        else:
+                            print(f"Invalid bet amount. Minimum bet is {big_blind}. Please try again.")
+                    elif action == 'ALL_IN':
+                        if self.stack_size >= bet_to_match:
+                            break
+                        else:
+                            print("You don't have enough chips to go all in.")
+                    else:
+                        print("Invalid action. Please try again.")
+                else:            
+                    action = input("Please enter an action (FOLD/CALL/RAISE/ALL_IN): ").upper()
+                    if action == 'FOLD':
+                        break
+                    elif action == 'CALL':
+                        if self.stack_size >= bet_to_match:
+                            bet_amount = bet_to_match
+                            break
+                        else:
+                            print("You don't have enough chips to call.")
+                    elif action == 'RAISE':
+                        min_raise = max(big_blind, last_raise)
+                        bet_amount = int(input(f"Enter your raise amount, {bet_to_match + min_raise} is the minimum: "))
+                        if bet_amount >= bet_to_match + min_raise:
+                            if bet_amount <= self.stack_size:
+                                break
+                            else:
+                                print("You don't have enough chips to raise this amount.")
+                        else:
+                            print(f"Invalid raise amount. Minimum raise is {bet_to_match + min_raise}. Please try again.")
+                    elif action == 'ALL_IN':
+                        break
+                    else:
+                        print("Invalid action. Please try again.")
+            except ValueError:
+                print("Invalid input. Please enter a numeric value for bet/raise amount.")
+        
+        
+        return Action(action, bet_amount)
     
     
 

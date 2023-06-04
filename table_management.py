@@ -5,16 +5,17 @@ class TableManagement:
         self.dealer_position = 0
 
 
-
     def get_active_players(self):
-        active_players = self.tables[self.table_name]['player_activity']['active_players']
+        players_list = self.tables[self.table_name]['player_activity']['active_players']
         # Filter the players who have not folded
-        return [player for player in active_players if not player.is_folded and not player.is_sitting_out]
+        active_players = [player for player in players_list if not player.is_folded and not player.is_sitting_out]
+        
+        return active_players
 
 
     def update_player_eligibility(self):
         
-        eligible_players = [player for player in self.tables[self.table_name]['player_activity']['active_players'] if player.is_eligible_for_pot]
+        eligible_players = [player for player in self.tables[self.table_name]['player_activity']['active_players'] if player.is_eligible_for_pot and not player.is_folded and not player.is_sitting_out]
         self.tables[self.table_name]['community_pot']['eligible_players'] = eligible_players
         
         return eligible_players
@@ -65,7 +66,7 @@ class TableManagement:
         table = self.tables[table_name]
 
         if player in table['seats']:
-            print(f"Player {player.name} has been removed from the table.")
+            print(f"{player.name} has been removed from the table.")
             index = table['seats'].index(player)
             table['seats'][index] = None
             table['player_activity']['active_players'].remove(player)
@@ -104,11 +105,11 @@ class TableManagement:
 
 
     def set_start_index(self, street, table, big_blind):
-        self.all_players = table['seats']
+        all_players = table['seats']
         
         big_blind_index = None
         dealer_index = None
-        for i, player in enumerate(self.all_players):
+        for i, player in enumerate(all_players):
             if player is not None:
                 if player.is_big_blind:
                     big_blind_index = i
@@ -118,18 +119,18 @@ class TableManagement:
 
         if street == 'preflop':
             # The player to the left of the big blind starts on preflop
-            starting_player_index = (big_blind_index + 1) % len(self.all_players)
+            starting_player_index = (big_blind_index + 1) % len(all_players)
             bet_to_match = big_blind
         else:
             # The player to the left of the dealer starts on all other streets
-            starting_player_index = (dealer_index + 1) % len(self.all_players)
+            starting_player_index = (dealer_index + 1) % len(all_players)
             bet_to_match = 0
 
         # Ensure the starting player is not None
-        while self.all_players[starting_player_index] is None:
-            starting_player_index = (starting_player_index + 1) % len(self.all_players)
+        while all_players[starting_player_index] is None:
+            starting_player_index = (starting_player_index + 1) % len(all_players)
     
-        return self.all_players, starting_player_index, bet_to_match
+        return all_players, starting_player_index, bet_to_match
 
 
 
